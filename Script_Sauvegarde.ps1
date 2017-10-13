@@ -1,27 +1,38 @@
 ﻿# --------------------------------------------- #
 #
 # Script de sauvegarde de configuration windows
+# Et autre config
 # Auteur : Kopry
-# Version: 1.0.0
+# Version: 1.1.0
 # 
 # --------------------------------------------- #
 # Version: 1.0.0
 # - Ecriture du script
+#
 # Version: 1.1.0
+# - Correction menu (Couleur et Forme)
+# - Correction multiple instance IE
+# - Amelioration du code (fonction)
+# - Affichage d'un rapport par defaut dans le fichier html
+#
+# Version: 1.2.0
 # - Corriger les erreurs possibles (Try and Catch)
-# - Correction menu
-# - Corriger multiple instance IE
+# - Ameliorer le template HTML
+# - Ajout des dates
+# - Ajout d'un menu diff
+# - Ajout d'un menu config
 # --------------------------------------------- #
 
 # Chemin du dossier temporaire, remplacez SSP par ce que vous voulez
 $Chemin = "C:\Users\$env:UserName\SSP"
 # Verification de l'existence de ce dossier
 $VerifierDossier = Test-Path $Chemin
-#Definition des noms pour le rapport complet
+# Definition des noms pour les rapports complets
 $MAJ = "liste_des_mises_a_jour_de_securite.html"
 $LOGI = "liste_des_logiciels.html"
 $RPF = "liste_regles_du_parefeu.html"
 $GPO = "liste_des_gpo.html"
+# Titre du document HTML
 $titre_document = "Rapport"
 
 If ($VerifierDossier -eq $False){
@@ -29,10 +40,69 @@ If ($VerifierDossier -eq $False){
     mkdir C:\Users\$env:UserName\SSP\
     }# Sinon continuer
 
+# Fonction pour generer un rapport HTML sur les patchs de sécurités installés
+function Get-USUH {
+        param($Chemin,
+              $MAJ,
+              $Etat_navigateur)
+        # Verification de l'existence du fichier
+        if (!(Test-Path -path "$Chemin\$MAJ")){
+
+        # Creation d'un objet windows update pour rechercher les maj installées
+        $Index = New-Object -ComObject Microsoft.Update.Session
+        # Recherche des mise à jour
+        $Index = $Session.CreateUpdateSearcher()
+        # Puis enregistrement dans un rapport
+        $Index.Search("IsInstalled=1").Updates | ConvertTo-Html -Property Date,Title,LastDeploymentChangeTime | Set-Content $Chemin\$MAJ
+
+        } # Sinon afficher le fichier
+        # Appel de l'objet IE pour charger le fichier dontenant les resultats
+        # Desactivé si $Etat_navigateur = False
+        If (!$Etat_navigateur){
+        $Navigateur.navigate2("$Chemin\$MAJ")
+        $Navigateur.visible=$True
+        }
+}
+
+# Fonction pour generer un rapport HTML sur les programmes installés
+function Get-PI ($Chemin, $LOGI, $Etat_navigateur) {
+        if (!(Test-Path -path "$Chemin\$LOGI")){ 
+        Get-WmiObject -class Win32_Product | ConvertTo-Html -Property Caption,Vendor,Version | Set-Content $Chemin\$LOGI
+        }
+        If (!$Etat_navigateur){
+        $Navigateur.navigate2("$Chemin\$LOGI")
+        $Navigateur.visible=$True
+        }
+}
+
+# Fonction pour generer un rapport HTML sur les regles du parefeu windows
+function Get-RPF ($Chemin, $RPF, $Etat_navigateur){
+        if (!(Test-Path -path "$Chemin\$RPF")){
+        Get-NetFirewallRule | sort direction,applicationName | ConvertTo-Html -property DisplayName,Profile,Enabled,direction| Set-Content $Chemin\$RPF
+        }
+        If (!$Etat_navigateur){
+        $Navigateur.navigate2("$Chemin\$RPF")
+        $Navigateur.visible=$True
+        }
+}
+
+# Fonction pour generer un rapport HTML sur les GPO actives
+function Get-GPO ($Chemin, $GPO, $Etat_navigateur){
+        If (!(Test-Path -path "$Chemin\$GPO")){
+        gpresult /h "$Chemin\$GPO"
+        }
+        If (!$Etat_navigateur){
+        $Navigateur.navigate2("$Chemin\$GPO")
+        $Navigateur.visible=$True
+        }
+}
+
+# Fonction pour generer un rapport complet
+
 $Menu = 0
 while ($Menu -lt '7'){ 
 # Menu du script
-cls
+#cls
 # Declaration d'un objet "Navigateur" pour afficher nos resultats HTML
 $Navigateur=new-object -com internetexplorer.application
 "(Menu) Export des parametres windows
@@ -55,55 +125,28 @@ switch ($menu)
           } 
         2 {"Liste des patchs de sécurité"
                     # Liste complete des mises à jour (Update / Security Update / Hotfixes)
-                    # Verification de l'existence du fichier
-                    if ((Test-Path -path "$Chemin\$MAJ") -eq $False){
-                    wmic qfe list full /format:htable > "$Chemin\$MAJ"
-                    } # Sinon afficher le fichier
-                    # Appel de l'objet IE pour charger le fichier dontenant les resultats
-                    $Navigateur.navigate2("$Chemin\$MAJ")
-                    $Navigateur.visible=$True
+                    Get-USUH $Chemin $MAJ
           } 
         3 {"Programmes installés"
                     # Programmes installés
-                    if (!(Test-Path -path "$Chemin\$LOGI")){ 
-                    Get-WmiObject -class Win32_Product | Select-Object -Property Caption,Vendor,Version | ConvertTo-Html | Set-Content $Chemin\$LOGI
-                    } # Sinon afficher le fichier
-                    $Navigateur.navigate2("$Chemin\$LOGI")
-                    $Navigateur.visible=$True
+                    Get-PI $Chemin $LOGI
           } 
         4 {"Regles du Pare-Feu"
                     # Liste des regles du parefeu
-                    # Verification de l'existence du fichier
-                    if (!(Test-Path -path "$Chemin\$RPF")){
-                    Get-NetFirewallRule | sort direction,applicationName | Format-Table -wrap -property DisplayName,DisplayGroup,Profile,Enabled,direction | ConvertTo-Html | Set-Content $Chemin\$RPF
-                    }# Sinon afficher le fichier
-                    $Navigateur.navigate2("$Chemin\$RPF")
-                    $Navigateur.visible=$True
+                    Get-RPF $Chemin $RPF
           } 
         5 {"GPO actives" 
                     # Liste des GPO
-                    # Verification de l'existence du fichier
-                    If (!(Test-Path -path "$Chemin\$GPO")){
-                    gpresult /h "$Chemin\$GPO"
-                    }# Sinon afficher le fichier
-                    $Navigateur.navigate2("$Chemin\$GPO")
-                    $Navigateur.visible=$True
-                    while ($Navigateur.busy) {sleep -milliseconds 50}
+                    Get-GPO $Chemin $GPO
           }
         6 {"Rapport complet"
+
+                    $Etat_navigateur = "False"
                     # Construction d'un rapport complet
-                    if ((Test-Path -path "$Chemin\$MAJ") -eq $False){
-                    wmic qfe list full /format:htable > "$Chemin\$MAJ"
-                    }
-                    if (!(Test-Path -path "$Chemin\$LOGI")){ 
-                    Get-WmiObject -class Win32_Product | Select-Object -Property Caption,Vendor,Version | ConvertTo-Html | Set-Content $Chemin\$LOGI
-                    }
-                    if (!(Test-Path -path "$Chemin\$RPF")){
-                    Get-NetFirewallRule | sort direction,applicationName | Format-Table -wrap -property DisplayName,DisplayGroup,Profile,Enabled,direction | ConvertTo-Html | Set-Content $Chemin\$RPF
-                    }
-                    If (!(Test-Path -path "$Chemin\$GPO")){
-                    gpresult /h "$Chemin\$GPO"
-                    }
+                    Get-USUH $Chemin $MAJ $Etat_navigateur
+                    Get-PI $Chemin $LOGI $Etat_navigateur
+                    Get-RPF $Chemin $RPF $Etat_navigateur
+                    Get-GPO $Chemin $GPO $Etat_navigateur
 
                     # Generation du sommaire
                     echo "<html><body>
@@ -118,15 +161,19 @@ switch ($menu)
                     echo "<html><head><title>$titre_document</title></head>
                     <frameset cols='300,*'>
                     <frame src='sommaire.html' name='sommaire'>
-                    <frame src='blank' name='conteneur'>
+                    <frame src='$MAJ' name='conteneur'>
                     </frameset>
                     </html>
                     " > $Chemin\Rapport_complet.html
+
+                    # Affichage du rapport
                     $Navigateur.navigate("$Chemin\Rapport_complet.html")
                     $Navigateur.visible=$True
+                    $Etat_navigateur = "True"
           }
         7 {"Quitter"}
         # Si l'utilisateur entre n'importe quoi
         default {"Erreur."}
     }
 }
+
