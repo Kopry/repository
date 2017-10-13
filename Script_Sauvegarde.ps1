@@ -41,7 +41,7 @@ $CR = "liste_configuration_reseau.html"
 # Titre du document HTML
 $titre_document = "Rapport"
 
-If ($VerifierDossier -eq $False){
+If (!($VerifierDossier)){
     # Si pas de dossier temporaire creation d'un dossier temporaire
     mkdir C:\Users\$env:UserName\SSP\
     }# Sinon continuer
