@@ -3,7 +3,7 @@
 # Script de sauvegarde de configuration windows
 # Et autre config
 # Auteur : Kopry
-# Version: 1.1.0
+# Version: 1.2.0
 # 
 # --------------------------------------------- #
 # Version: 1.0.0
@@ -16,10 +16,15 @@
 # - Affichage d'un rapport par defaut dans le fichier html
 #
 # Version: 1.2.0
-# - Corriger les erreurs possibles (Try and Catch)
-# - Ameliorer le template HTML
+# - Configuration reseau (Menu 7)
 # - Ajout des dates
+# - Correction des commandes
+# - Amelioration du menu
+#
+# Version 1.3.0
+# - Corriger les erreurs possibles (Try and Catch)
 # - Ajout d'un menu diff
+# - Ameliorer le template HTML
 # - Ajout d'un menu config
 # --------------------------------------------- #
 
@@ -32,6 +37,7 @@ $MAJ = "liste_des_mises_a_jour_de_securite.html"
 $LOGI = "liste_des_logiciels.html"
 $RPF = "liste_regles_du_parefeu.html"
 $GPO = "liste_des_gpo.html"
+$CR = "liste_configuration_reseau.html"
 # Titre du document HTML
 $titre_document = "Rapport"
 
@@ -78,7 +84,7 @@ function Get-PI ($Chemin, $LOGI, $Etat_navigateur) {
 # Fonction pour generer un rapport HTML sur les regles du parefeu windows
 function Get-RPF ($Chemin, $RPF, $Etat_navigateur){
         if (!(Test-Path -path "$Chemin\$RPF")){
-        Get-NetFirewallRule | sort direction,applicationName | ConvertTo-Html -property DisplayName,Profile,Enabled,direction| Set-Content $Chemin\$RPF
+        Get-NetFirewallRule | sort direction,applicationName | ConvertTo-Html -property DisplayName,Profile,Enabled,direction | Set-Content $Chemin\$RPF
         }
         If (!$Etat_navigateur){
         $Navigateur.navigate2("$Chemin\$RPF")
@@ -97,22 +103,37 @@ function Get-GPO ($Chemin, $GPO, $Etat_navigateur){
         }
 }
 
+# Fonction pour generer un rapport HTML sur la configuration reseau de l'ordinateur
+function Get-CR ($Chemin, $CR, $Etat_navigateur){
+        If (!(Test-Path -path "$Chemin\$CR")){
+        Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ComputerName . | Select-Object -Property [a-z]* -ExcludeProperty IPX*,WINS* | ConvertTo-Html -property Description,MACAddress,@{l="IPAddress";e={$_.IPAddress -join " "}},@{l="DefaultIPGateway";e={$_.DefaultIPGateway -join " "}}  | Set-Content $Chemin\$CR
+        }
+        If (!$Etat_navigateur){
+        $Navigateur.navigate2("$Chemin\$CR")
+        $Navigateur.visible=$True
+        }
+}
 # Fonction pour generer un rapport complet
 
 $Menu = 0
-while ($Menu -lt '7'){ 
+while ($Menu -lt '8'){ 
 # Menu du script
-#cls
+cls
 # Declaration d'un objet "Navigateur" pour afficher nos resultats HTML
 $Navigateur=new-object -com internetexplorer.application
-"(Menu) Export des parametres windows
- (1)   Ou les fichiers sont-ils sauvegardés ?
- (2)   Liste des patchs de sécurité
- (3)   Programmes installés
- (4)   Regles du Pare-Feu
- (5)   GPO actives
- (6)   Construction d'un rapport complet
- (7)   Quitter
+"
+{----------------------------------------------}
+|(Menu) Export des parametres windows          |
+{----------------------------------------------}
+| (1)   Ou les fichiers sont-ils sauvegardés ? |
+| (2)   Liste des patchs de sécurité           |
+| (3)   Programmes installés                   |
+| (4)   Regles du Pare-Feu                     |
+| (5)   GPO actives                            |
+| (6)   Configuration Réseau                   |
+| (7)   Construction d'un rapport complet      |
+| (8)   Quitter                                |
+{----------------------------------------------}
      "
 $menu = Read-Host -Prompt '>'
 switch ($menu) 
@@ -139,7 +160,11 @@ switch ($menu)
                     # Liste des GPO
                     Get-GPO $Chemin $GPO
           }
-        6 {"Rapport complet"
+        6 {"Configuration Reseau" 
+                    # Liste de la configuration des interfaces
+                    Get-CR $Chemin $CR
+          }
+        7 {"Rapport complet"
 
                     $Etat_navigateur = "False"
                     # Construction d'un rapport complet
@@ -147,6 +172,7 @@ switch ($menu)
                     Get-PI $Chemin $LOGI $Etat_navigateur
                     Get-RPF $Chemin $RPF $Etat_navigateur
                     Get-GPO $Chemin $GPO $Etat_navigateur
+                    Get-CR $Chemin $CR $Etat_navigateur
 
                     # Generation du sommaire
                     echo "<html><body>
@@ -155,6 +181,7 @@ switch ($menu)
                     <a href='./$LOGI' target='conteneur'>$LOGI</a><br/>
                     <a href='./$RPF' target='conteneur'>$RPF</a><br/>
                     <a href='./$GPO' target='conteneur'>$GPO</a><br/>
+                    <a href='./$CR' target='conteneur'>$CR</a><br/>
                     </body></html>" > $Chemin\sommaire.html
 
                     # Generation de l'index
