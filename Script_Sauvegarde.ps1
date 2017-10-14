@@ -6,38 +6,43 @@
 # Version: 1.2.0
 # 
 # --------------------------------------------- #
-# Version: 1.0.0
-# - Ecriture du script
-#
-# Version: 1.1.0
-# - Correction menu (Couleur et Forme)
-# - Correction multiple instance IE
-# - Amelioration du code (fonction)
-# - Affichage d'un rapport par defaut dans le fichier html
-#
 # Version: 1.2.0
 # - Configuration reseau (Menu 7)
 # - Ajout des dates
 # - Correction des commandes
 # - Amelioration du menu
+# - Correction bug menu 2, menu 8
 #
 # Version 1.3.0
+# - Correction de l'heure
+# - Ajout des services windows
+#
+# Version 1.4.0
 # - Corriger les erreurs possibles (Try and Catch)
 # - Ajout d'un menu diff
 # - Ameliorer le template HTML
 # - Ajout d'un menu config
 # --------------------------------------------- #
 
+# ----------------------------------------- -----------------------------------------
+# Parametre global du script
+# ----------------------------------------- -----------------------------------------
+
 # Chemin du dossier temporaire, remplacez SSP par ce que vous voulez
 $Chemin = "C:\Users\$env:UserName\SSP"
 # Verification de l'existence de ce dossier
 $VerifierDossier = Test-Path $Chemin
+
 # Definition des noms pour les rapports complets
 $MAJ = "liste_des_mises_a_jour_de_securite.html"
 $LOGI = "liste_des_logiciels.html"
 $RPF = "liste_regles_du_parefeu.html"
 $GPO = "liste_des_gpo.html"
 $CR = "liste_configuration_reseau.html"
+$SW = "liste_des_services_windows.html"
+
+# Datation
+$Date = Get-Date -UFormat "%Y / %m / %d / %A à %H:%M"
 # Titre du document HTML
 $titre_document = "Rapport"
 
@@ -45,6 +50,10 @@ If (!($VerifierDossier)){
     # Si pas de dossier temporaire creation d'un dossier temporaire
     mkdir C:\Users\$env:UserName\SSP\
     }# Sinon continuer
+
+# ----------------------------------------- -----------------------------------------
+# Fonction de recuperations des rapports
+# ----------------------------------------- -----------------------------------------
 
 # Fonction pour generer un rapport HTML sur les patchs de sécurités installés
 function Get-USUH {
@@ -55,7 +64,7 @@ function Get-USUH {
         if (!(Test-Path -path "$Chemin\$MAJ")){
 
         # Creation d'un objet windows update pour rechercher les maj installées
-        $Index = New-Object -ComObject Microsoft.Update.Session
+        $Session = New-Object -ComObject Microsoft.Update.Session
         # Recherche des mise à jour
         $Index = $Session.CreateUpdateSearcher()
         # Puis enregistrement dans un rapport
@@ -71,7 +80,10 @@ function Get-USUH {
 }
 
 # Fonction pour generer un rapport HTML sur les programmes installés
-function Get-PI ($Chemin, $LOGI, $Etat_navigateur) {
+function Get-PI {
+        param($Chemin,
+              $PI,
+              $Etat_navigateur)
         if (!(Test-Path -path "$Chemin\$LOGI")){ 
         Get-WmiObject -class Win32_Product | ConvertTo-Html -Property Caption,Vendor,Version | Set-Content $Chemin\$LOGI
         }
@@ -82,7 +94,10 @@ function Get-PI ($Chemin, $LOGI, $Etat_navigateur) {
 }
 
 # Fonction pour generer un rapport HTML sur les regles du parefeu windows
-function Get-RPF ($Chemin, $RPF, $Etat_navigateur){
+function Get-RPF {
+        param($Chemin,
+              $RPF,
+              $Etat_navigateur)
         if (!(Test-Path -path "$Chemin\$RPF")){
         Get-NetFirewallRule | sort direction,applicationName | ConvertTo-Html -property DisplayName,Profile,Enabled,direction | Set-Content $Chemin\$RPF
         }
@@ -93,7 +108,10 @@ function Get-RPF ($Chemin, $RPF, $Etat_navigateur){
 }
 
 # Fonction pour generer un rapport HTML sur les GPO actives
-function Get-GPO ($Chemin, $GPO, $Etat_navigateur){
+function Get-GPO {
+        param($Chemin,
+              $GPO,
+              $Etat_navigateur)
         If (!(Test-Path -path "$Chemin\$GPO")){
         gpresult /h "$Chemin\$GPO"
         }
@@ -104,7 +122,10 @@ function Get-GPO ($Chemin, $GPO, $Etat_navigateur){
 }
 
 # Fonction pour generer un rapport HTML sur la configuration reseau de l'ordinateur
-function Get-CR ($Chemin, $CR, $Etat_navigateur){
+function Get-CR {
+        param($Chemin,
+              $CR,
+              $Etat_navigateur)
         If (!(Test-Path -path "$Chemin\$CR")){
         Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ComputerName . | Select-Object -Property [a-z]* -ExcludeProperty IPX*,WINS* | ConvertTo-Html -property Description,MACAddress,@{l="IPAddress";e={$_.IPAddress -join " "}},@{l="DefaultIPGateway";e={$_.DefaultIPGateway -join " "}}  | Set-Content $Chemin\$CR
         }
@@ -113,28 +134,53 @@ function Get-CR ($Chemin, $CR, $Etat_navigateur){
         $Navigateur.visible=$True
         }
 }
-# Fonction pour generer un rapport complet
+
+# Fonction pour generer un rapport HTML sur les services windows de l'ordinateur
+function Get-SW {
+        param($Chemin,
+              $SW,
+              $Etat_navigateur)
+        If (!(Test-Path -path "$Chemin\$SW")){
+        Get-Service | Sort-Object Status | ConvertTo-Html | Set-Content $Chemin\$SW
+        }
+        If (!$Etat_navigateur){
+        $Navigateur.navigate2("$Chemin\$SW")
+        $Navigateur.visible=$True
+        }
+}
+
+# ----------------------------------------- -----------------------------------------
+# Menu de configuration
+# ----------------------------------------- -----------------------------------------
+
+# A rediger
+
+# ----------------------------------------- -----------------------------------------
+# Menu principal
+# ----------------------------------------- -----------------------------------------
 
 $Menu = 0
 while ($Menu -lt '8'){ 
 # Menu du script
 cls
-# Declaration d'un objet "Navigateur" pour afficher nos resultats HTML
+# Declaration d'un objet "Navigateur" pour afficher nos resultats HTML 
+# (celui-ci est redeclaré a chaque boucle, a cause d'un bug)
 $Navigateur=new-object -com internetexplorer.application
 "
-{----------------------------------------------}
+ ----------------------------------------------
 |(Menu) Export des parametres windows          |
-{----------------------------------------------}
+ ----------------------------------------------
 | (1)   Ou les fichiers sont-ils sauvegardés ? |
 | (2)   Liste des patchs de sécurité           |
 | (3)   Programmes installés                   |
 | (4)   Regles du Pare-Feu                     |
 | (5)   GPO actives                            |
 | (6)   Configuration Réseau                   |
-| (7)   Construction d'un rapport complet      |
-| (8)   Quitter                                |
-{----------------------------------------------}
-     "
+| (7)   Services windows                       |
+| (8)   Construction d'un rapport complet      |
+| (9)   Quitter                                |
+ ----------------------------------------------
+"
 $menu = Read-Host -Prompt '>'
 switch ($menu) 
     { 
@@ -142,6 +188,8 @@ switch ($menu)
             > $Chemin
            "
                     # Chemin d'enregistrement des fichiers stockant les resultats
+                    # Parametre pour chaques elemens (sous menu)
+                    # Emplacement des fichier et suppression des rapports déjà construit
                     pause
           } 
         2 {"Liste des patchs de sécurité"
@@ -164,15 +212,21 @@ switch ($menu)
                     # Liste de la configuration des interfaces
                     Get-CR $Chemin $CR
           }
-        7 {"Rapport complet"
+        6 {"Configuration Reseau" 
+                    # Liste de la configuration des interfaces
+                    Get-SW $Chemin $SW
+          }
+        8 {"Rapport complet"
 
                     $Etat_navigateur = "False"
-                    # Construction d'un rapport complet
+                    # Construction de chaque rapport
                     Get-USUH $Chemin $MAJ $Etat_navigateur
                     Get-PI $Chemin $LOGI $Etat_navigateur
                     Get-RPF $Chemin $RPF $Etat_navigateur
                     Get-GPO $Chemin $GPO $Etat_navigateur
                     Get-CR $Chemin $CR $Etat_navigateur
+                    Get-SW $Chemin $SW $Etat_navigateur
+                    $Etat_navigateur = "True"
 
                     # Generation du sommaire
                     echo "<html><body>
@@ -182,6 +236,8 @@ switch ($menu)
                     <a href='./$RPF' target='conteneur'>$RPF</a><br/>
                     <a href='./$GPO' target='conteneur'>$GPO</a><br/>
                     <a href='./$CR' target='conteneur'>$CR</a><br/>
+                    <a href='./$SW' target='conteneur'>$SW</a><br/>
+                    <br/><br/><br/><br/><h2>$Date</h2>
                     </body></html>" > $Chemin\sommaire.html
 
                     # Generation de l'index
@@ -193,14 +249,15 @@ switch ($menu)
                     </html>
                     " > $Chemin\Rapport_complet.html
 
-                    # Affichage du rapport
+                    # Affichage de l'index du rapport
                     $Navigateur.navigate("$Chemin\Rapport_complet.html")
                     $Navigateur.visible=$True
-                    $Etat_navigateur = "True"
           }
-        7 {"Quitter"}
+        9 {"Quitter"
+                    cls
+                    break
+          }
         # Si l'utilisateur entre n'importe quoi
         default {"Erreur."}
     }
 }
-
