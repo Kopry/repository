@@ -1,4 +1,4 @@
-﻿<#
+<#
 	.SYNOPSIS
         **MBSA_Update.ps1**
 		Ce script récupere un fichier de rapport de MBSA (Microsoft Baseline Security Analyzer) et télécharge tous les 
@@ -22,13 +22,10 @@
 				Version initiale
 			☑ 1.1 | Bugs
 				Correction des bugs initiaux au script comme le mauvais encodage UTF-8 - BOM (incorrect) pour le script d'installation
-                L'utilisation de l'utilitaire pkgmgr.exe est déprécié, mise à jour en conséquence pour l'utilitaire dism.exe
-                Ajout d'une méthode de téléchargement annexe (WGET) dans le cas ou les modules pour télécharger nativement avec
-                powershell windows ne soient pas disponible
-                Ajout User Agent personalisé (Firefox) dans le cas ou un filtrage s'effectuerait sur l'UA
-            ☑ 1.2 | CLI - menu
-                Construction d'un menu pour personaliser les parametres du script
-
+               			L'utilisation de l'utilitaire pkgmgr.exe est déprécié, mise à jour en conséquence pour l'utilitaire dism.exe
+                		Ajout d'une méthode de téléchargement annexe (WGET) dans le cas ou les modules pour télécharger nativement avec
+                		powershell windows ne soient pas disponible
+                		Ajout User Agent personalisé (Firefox) dans le cas ou un filtrage s'effectuerait sur l'UA
 #>
 
 #Erreur plus détaillée
